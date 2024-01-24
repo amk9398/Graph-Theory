@@ -1,2 +1,4 @@
-package main;public class Dijkstra {
+package main;
+
+public class Dijkstra {
 }
