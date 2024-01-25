@@ -1,20 +1,22 @@
 package graph;
 
+import main.Dijkstra;
 import java.util.*;
+import java.util.stream.IntStream;
 
 public class Graph {
 
     private ArrayList<Vertex> vertices = new ArrayList<>();
     private ArrayList<Edge> edges = new ArrayList<>();
-    private HashMap<Integer, Vertex> vertexIdMap = new HashMap<>();
-    private HashMap<Integer, Edge> edgeIdMap = new HashMap<>();
+    private final HashMap<Integer, Vertex> vertexIdMap = new HashMap<>();
+    private final HashMap<Integer, Edge> edgeIdMap = new HashMap<>();
     private int[][] adjacencyMatrix;
     private int[][] incidenceMatrix;
 
     public Graph(String adjacencyList) {
         String[] lines = adjacencyList.split("\n");
 
-        for (String line : lines)
+        for (String ignored : lines)
             this.vertices.add(new Vertex());
 
         for (int v1 = 0; v1 < lines.length; v1++)
@@ -28,8 +30,10 @@ public class Graph {
     }
 
     protected Graph(ArrayList<Vertex> vertices, ArrayList<Edge> edges) {
-        this.vertices = vertices;
-        this.edges = edges;
+        this.vertices = new ArrayList<>(vertices);
+        this.edges = new ArrayList<>(edges);
+        this.vertices.sort(Comparator.comparingInt(Vertex::getId));
+        this.edges.sort(Comparator.comparingInt(Edge::getId));
         for (Vertex vertex : vertices) this.vertexIdMap.put(vertex.getId(), vertex);
         for (Edge edge : edges) this.edgeIdMap.put(edge.getId(), edge);
     }
@@ -69,19 +73,21 @@ public class Graph {
     public static int[][] calcAdjacencyMatrix(ArrayList<Vertex> vertices, ArrayList<Edge> edges) {
         int[][] adjacencyMatrix = new int[vertices.size()][vertices.size()];
         for (Edge edge : edges) {
-            adjacencyMatrix[edge.getV1().getId()][edge.getV2().getId()] += 1;
-            adjacencyMatrix[edge.getV2().getId()][edge.getV1().getId()] += 1;
+            Vertex v1 = edge.getV1();
+            Vertex v2 = edge.getV2();
+            adjacencyMatrix[vertices.indexOf(v1)][vertices.indexOf(v2)] += 1;
+            adjacencyMatrix[vertices.indexOf(v2)][vertices.indexOf(v1)] += 1;
         }
-        return adjacencyMatrix; // TODO: should nto get by vertex
+        return adjacencyMatrix;
     }
 
     public static int[][] calcIncidenceMatrix(ArrayList<Vertex> vertices, ArrayList<Edge> edges) {
         int[][] incidenceMatrix = new int[vertices.size()][edges.size()];
         for (Edge edge : edges) {
-            incidenceMatrix[edge.getV1().getId()][edge.getId()] += 1;
-            incidenceMatrix[edge.getV2().getId()][edge.getId()] += 1;
+            incidenceMatrix[vertices.indexOf(edge.getV1())][edges.indexOf(edge)] += 1;
+            incidenceMatrix[vertices.indexOf(edge.getV2())][edges.indexOf(edge)] += 1;
         }
-        return incidenceMatrix; // TODO: should nto get by vertex
+        return incidenceMatrix;
     }
 
     public boolean adjacent(int v1, int v2) {
@@ -152,14 +158,6 @@ public class Graph {
         return new Graph(vertices, newEdges);
     }
 
-    public boolean isVertexTransitive() {
-        return false; // TODO
-    }
-
-    public boolean isEdgeTransitive() {
-        return false; // TODO
-    }
-
     public boolean subgraphOf(Graph g) {
         return g.vertices.containsAll(vertices) && g.edges.containsAll(edges);
     }
@@ -173,11 +171,39 @@ public class Graph {
     }
 
     public Graph simple() {
-        return null; // TODO
+        ArrayList<Vertex> newVertices = new ArrayList<>(vertices);
+        ArrayList<Edge> newEdges = new ArrayList<>();
+        int[][] adjacencyMatrix = new int[vertices.size()][vertices.size()];
+        for (Edge edge : edges) {
+            if (!edge.getV1().equals(edge.getV2())) {
+                int ind1 = vertices.indexOf(edge.getV1());
+                int ind2 = vertices.indexOf(edge.getV2());
+                if (adjacencyMatrix[ind1][ind2] > 0) {
+                    newEdges.add(edge);
+                    adjacencyMatrix[ind1][ind2] += 1;
+                    adjacencyMatrix[ind2][ind1] += 1;
+                }
+            }
+        }
+        return new Graph(newVertices, newEdges);
     }
 
-    public Graph complete() {
-        return null; // TODO
+    public static Graph complete(int k) {
+        StringBuilder adjacencyList = new StringBuilder();
+        List<Integer> numbersList = IntStream.range(0, k)
+                .boxed()
+                .toList();
+        String numbersString = numbersList
+                .toString()
+                .replace("[", "")
+                .replace("]", "")
+                .replace(" ", "");
+        for (int i = 0; i < k; i++) {
+            adjacencyList.append(numbersString, 0, 2 * i)
+                         .append(numbersString, 2 * i + 1, 2 * k - 1)
+                         .append("\n");
+        }
+        return new Graph(adjacencyList.toString());
     }
 
     public Graph induceByVertices(ArrayList<Vertex> vertices) {
@@ -211,11 +237,17 @@ public class Graph {
     }
 
     public boolean disjoint(Graph g) {
-        return false; // TODO
+        Set<Integer> ids = new HashSet<>();
+        ids.addAll(vertices.stream().map(Vertex::getId).toList());
+        ids.addAll(g.vertices.stream().map(Vertex::getId).toList());
+        return ids.size() == v() + g.v();
     }
 
     public boolean edgeDisjoint(Graph g) {
-        return false; // TODO
+        Set<Edge> edges = new HashSet<>();
+        edges.addAll(this.edges);
+        edges.addAll(g.edges);
+        return edges.size() == e() + g.e();
     }
 
     public Graph union(Graph g) {
@@ -255,19 +287,19 @@ public class Graph {
     }
 
     public boolean connected(int v1, int v2) {
-        return false; // TODO
+        return Dijkstra.bfs(this, getVertexById(v1), getVertexById(v2)) >= 0;
     }
 
     public int distance(int v1, int v2) {
-        return 0; // TODO
+        return Dijkstra.distance(this, getVertexById(v1), getVertexById(v2));
     }
 
     public int diameter() {
-        return 0; // TODO
+        return Dijkstra.diameter(this);
     }
 
     public int girth() {
-        return 0; // TODO
+        return Dijkstra.girth(this);
     }
 
     @Override
